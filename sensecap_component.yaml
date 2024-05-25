@@ -1,0 +1,75 @@
+blueprint:
+  author: AlbetaCOM
+  name: SenseCap Indicator Component
+  description: 'Blueprint to be used with SenseCap Indicator AlbetaCOM project to update the switches state.'
+  domain: automation
+  input:
+    ha_entities:
+      name: ha entities
+      description: entity to control from SenseCap indicator
+      selector:
+        entity:
+          filter:
+            - domain: 
+              - cover
+              - light
+              - switch
+          multiple: true
+
+trigger:
+  - platform: mqtt
+    topic: indicator/switch/action
+    id: Action
+  - platform: mqtt
+    topic: indicator/switch/state
+    id: States
+  - platform: state
+    entity_id: !input 'ha_entities'
+    id: HA_States
+    to:
+
+
+condition: []
+action:
+  - alias: Executa si he rebut action
+    if:
+      - condition: trigger
+        id:
+          - Action
+    then:
+      - service_template: "{{ trigger.payload_json.action}}"
+        data: {}
+        target:
+          entity_id: "{{ trigger.payload_json.key}}"
+  - alias: Executa si l'estat es unknown
+    if:
+      - condition: trigger
+        id:
+          - States
+    then:
+      - if:
+          - condition: template
+            value_template: "{%set items = trigger.payload_json.values() | list%} {{items[0] == \"unknown\"}}"
+        then:
+          - service: mqtt.publish
+            metadata: {}
+            data:
+              qos: "1"
+              retain: false
+              topic: indicator/switch/set
+              payload: "{%set entities_list = trigger.payload_json | list%} {\"{{ entities_list[0] }}\": \"{{states(entities_list[0])}}\"}"
+  - alias: Executa si canvi d'estat
+    if:
+      - condition: trigger
+        id:
+          - HA_States
+    then:    
+      - service: mqtt.publish
+        metadata: {}
+        data:
+          qos: "1"
+          retain: false
+          topic: indicator/switch/set
+          payload: "{\"{{ trigger.entity_id }}\": \"{{ states(trigger.entity_id) }}\"}"
+mode: queued
+max: 30
