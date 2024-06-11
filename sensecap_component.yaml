@@ -1,7 +1,8 @@
 blueprint:
   author: AlbetaCOM
   name: SenseCap Indicator Component
-  description: 'Blueprint to be used with SenseCap Indicator AlbetaCOM project to update the switches state.'
+  description: Blueprint to be used with SenseCap Indicator AlbetaCOM project to update
+    the switches state.
   domain: automation
   input:
     ha_switch_entities:
@@ -33,7 +34,7 @@ trigger:
   id: Action
 - platform: mqtt
   topic: indicator/switch/state
-  id: States
+  id: Switch
 - platform: mqtt
   topic: indicator/sensor
   id: Sensor
@@ -57,16 +58,16 @@ action:
     data: {}
     target:
       entity_id: '{{ trigger.payload_json.key}}'
-- alias: Executa si l'estat es unknown
+- alias: Executa si l'estat del switch es unknown
   if:
   - condition: trigger
     id:
-    - States
-    - Sensor
+    - Switch
   then:
   - if:
     - condition: template
-      value_template: '{%set items = trigger.payload_json.values() | list%} {{items[0] == "unknown"}}'
+      value_template: '{%set items = trigger.payload_json.values() | list%} {{items[0]
+        == "unknown"}}'
     then:
     - service: mqtt.publish
       metadata: {}
@@ -74,7 +75,26 @@ action:
         qos: '1'
         retain: false
         topic: indicator/switch/set
-        payload: '{%set entities_list = trigger.payload_json | list%} {"{{ entities_list[0] }}": "{{states(entities_list[0])}}"}'
+        payload: '{%set entities_list = trigger.payload_json | list%} {% if states(entities_list[0]) == "unknown" -%} {"{{ entities_list[0] }}": "."} {%- else -%} {"{{ entities_list[0] }}": "{{states(entities_list[0])}}"} {%- endif %}'
+- alias: Executa si l'estat del sensor es unknown
+  if:
+  - condition: trigger
+    id:
+    - Sensor
+  then:
+  - if:
+    - condition: template
+      value_template: '{%set items = trigger.payload_json.values() | list%} {{items[0]
+        == "unknown"}}'
+    then:
+    - service: mqtt.publish
+      metadata: {}
+      data:
+        qos: '1'
+        retain: false
+        topic: indicator/sensor
+        payload: '{%set entities_list = trigger.payload_json | list%} {% if states(entities_list[0]) == "unknown" -%} {"{{ entities_list[0] }}": "."} {%- else -%} {"{{ entities_list[0] }}": "{{states(entities_list[0])}}"} {%- endif %}'
+
 - alias: Executa si switch canvia d'estat
   if:
   - condition: trigger
